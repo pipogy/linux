@@ -31,6 +31,7 @@
 #if IS_ENABLED(CONFIG_IPV6)
 #include <linux/in6.h>
 #endif
+#include <asm/unaligned.h>
 
 static int verify_one_alg(struct nlattr **attrs, enum xfrm_attr_type_t type)
 {
@@ -728,7 +729,9 @@ static void copy_to_user_state(struct xfrm_state *x, struct xfrm_usersa_info *p)
 	memcpy(&p->sel, &x->sel, sizeof(p->sel));
 	memcpy(&p->lft, &x->lft, sizeof(p->lft));
 	memcpy(&p->curlft, &x->curlft, sizeof(p->curlft));
-	memcpy(&p->stats, &x->stats, sizeof(p->stats));
+	put_unaligned(x->stats.replay_window, &p->stats.replay_window);
+	put_unaligned(x->stats.replay, &p->stats.replay);
+	put_unaligned(x->stats.integrity_failed, &p->stats.integrity_failed);
 	memcpy(&p->saddr, &x->props.saddr, sizeof(p->saddr));
 	p->mode = x->props.mode;
 	p->replay_window = x->props.replay_window;
@@ -806,7 +809,8 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
 			goto out;
 	}
 	if (x->lastused) {
-		ret = nla_put_u64(skb, XFRMA_LASTUSED, x->lastused);
+		ret = nla_put_u64_64bit(skb, XFRMA_LASTUSED, x->lastused,
+					XFRMA_PAD);
 		if (ret)
 			goto out;
 	}
@@ -1810,7 +1814,7 @@ static inline size_t xfrm_aevent_msgsize(struct xfrm_state *x)
 
 	return NLMSG_ALIGN(sizeof(struct xfrm_aevent_id))
 	       + nla_total_size(replay_size)
-	       + nla_total_size(sizeof(struct xfrm_lifetime_cur))
+	       + nla_total_size_64bit(sizeof(struct xfrm_lifetime_cur))
 	       + nla_total_size(sizeof(struct xfrm_mark))
 	       + nla_total_size(4) /* XFRM_AE_RTHR */
 	       + nla_total_size(4); /* XFRM_AE_ETHR */
@@ -1845,7 +1849,8 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct 
 	}
 	if (err)
 		goto out_cancel;
-	err = nla_put(skb, XFRMA_LTIME_VAL, sizeof(x->curlft), &x->curlft);
+	err = nla_put_64bit(skb, XFRMA_LTIME_VAL, sizeof(x->curlft), &x->curlft,
+			    XFRMA_PAD);
 	if (err)
 		goto out_cancel;
 
@@ -2446,7 +2451,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	int type, err;
 
 #ifdef CONFIG_COMPAT
-	if (is_compat_task())
+	if (in_compat_syscall())
 		return -ENOTSUPP;
 #endif
 
@@ -2614,7 +2619,7 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
 		l += nla_total_size(sizeof(x->props.extra_flags));
 
 	/* Must count x->lastused as it may become non-zero behind our back. */
-	l += nla_total_size(sizeof(u64));
+	l += nla_total_size_64bit(sizeof(u64));
 
 	return l;
 }

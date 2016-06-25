@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2015, Intel Corp.
+ * Copyright (C) 2000 - 2016, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@
 #include "acparser.h"
 #include "acdispat.h"
 #include "actables.h"
+#include "acinterp.h"
 
 #define _COMPONENT          ACPI_NAMESPACE
 ACPI_MODULE_NAME("nsparse")
@@ -141,8 +142,8 @@ acpi_ns_one_complete_parse(u32 pass_number,
 
 	/* Parse the AML */
 
-	ACPI_DEBUG_PRINT((ACPI_DB_PARSE, "*PARSE* pass %u parse\n",
-			  pass_number));
+	ACPI_DEBUG_PRINT((ACPI_DB_PARSE,
+			  "*PARSE* pass %u parse\n", pass_number));
 	status = acpi_ps_parse_aml(walk_state);
 
 cleanup:
@@ -170,6 +171,8 @@ acpi_ns_parse_table(u32 table_index, struct acpi_namespace_node *start_node)
 
 	ACPI_FUNCTION_TRACE(ns_parse_table);
 
+	acpi_ex_enter_interpreter();
+
 	/*
 	 * AML Parse, pass 1
 	 *
@@ -181,10 +184,11 @@ acpi_ns_parse_table(u32 table_index, struct acpi_namespace_node *start_node)
 	 * performs another complete parse of the AML.
 	 */
 	ACPI_DEBUG_PRINT((ACPI_DB_PARSE, "**** Start pass 1\n"));
+
 	status = acpi_ns_one_complete_parse(ACPI_IMODE_LOAD_PASS1,
 					    table_index, start_node);
 	if (ACPI_FAILURE(status)) {
-		return_ACPI_STATUS(status);
+		goto error_exit;
 	}
 
 	/*
@@ -200,8 +204,10 @@ acpi_ns_parse_table(u32 table_index, struct acpi_namespace_node *start_node)
 	status = acpi_ns_one_complete_parse(ACPI_IMODE_LOAD_PASS2,
 					    table_index, start_node);
 	if (ACPI_FAILURE(status)) {
-		return_ACPI_STATUS(status);
+		goto error_exit;
 	}
 
+error_exit:
+	acpi_ex_exit_interpreter();
 	return_ACPI_STATUS(status);
 }

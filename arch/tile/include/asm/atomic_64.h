@@ -24,7 +24,7 @@
 
 /* First, the 32-bit atomic ops that are "real" on our 64-bit platform. */
 
-#define atomic_set(v, i) ((v)->counter = (i))
+#define atomic_set(v, i) WRITE_ONCE((v)->counter, (i))
 
 /*
  * The smp_mb() operations throughout are to support the fact that
@@ -37,12 +37,25 @@ static inline void atomic_add(int i, atomic_t *v)
 	__insn_fetchadd4((void *)&v->counter, i);
 }
 
+/*
+ * Note a subtlety of the locking here.  We are required to provide a
+ * full memory barrier before and after the operation.  However, we
+ * only provide an explicit mb before the operation.  After the
+ * operation, we use barrier() to get a full mb for free, because:
+ *
+ * (1) The barrier directive to the compiler prohibits any instructions
+ * being statically hoisted before the barrier;
+ * (2) the microarchitecture will not issue any further instructions
+ * until the fetchadd result is available for the "+ i" add instruction;
+ * (3) the smb_mb before the fetchadd ensures that no other memory
+ * operations are in flight at this point.
+ */
 static inline int atomic_add_return(int i, atomic_t *v)
 {
 	int val;
 	smp_mb();  /* barrier for proper semantics */
 	val = __insn_fetchadd4((void *)&v->counter, i) + i;
-	barrier();  /* the "+ i" above will wait on memory */
+	barrier();  /* equivalent to smp_mb(); see block comment above */
 	return val;
 }
 
@@ -82,8 +95,8 @@ static inline void atomic_xor(int i, atomic_t *v)
 
 #define ATOMIC64_INIT(i)	{ (i) }
 
-#define atomic64_read(v)		((v)->counter)
-#define atomic64_set(v, i) ((v)->counter = (i))
+#define atomic64_read(v)	READ_ONCE((v)->counter)
+#define atomic64_set(v, i)	WRITE_ONCE((v)->counter, (i))
 
 static inline void atomic64_add(long i, atomic64_t *v)
 {
@@ -95,7 +108,7 @@ static inline long atomic64_add_return(long i, atomic64_t *v)
 	int val;
 	smp_mb();  /* barrier for proper semantics */
 	val = __insn_fetchadd((void *)&v->counter, i) + i;
-	barrier();  /* the "+ i" above will wait on memory */
+	barrier();  /* equivalent to smp_mb; see atomic_add_return() */
 	return val;
 }
 

@@ -371,7 +371,7 @@ static void hix5hd2_port_enable(struct hix5hd2_priv *priv)
 
 static void hix5hd2_port_disable(struct hix5hd2_priv *priv)
 {
-	writel_relaxed(~(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
+	writel_relaxed(~(u32)(BITS_RX_EN | BITS_TX_EN), priv->base + PORT_EN);
 	writel_relaxed(0, priv->base + DESC_WR_RD_ENA);
 }
 
@@ -636,7 +636,7 @@ static int hix5hd2_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	pos = dma_ring_incr(pos, TX_DESC_NUM);
 	writel_relaxed(dma_byte(pos), priv->base + TX_BQ_WR_ADDR);
 
-	dev->trans_start = jiffies;
+	netif_trans_update(dev);
 	dev->stats.tx_packets++;
 	dev->stats.tx_bytes += skb->len;
 	netdev_sent_queue(dev, skb->len);

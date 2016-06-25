@@ -508,7 +508,7 @@ static void axienet_device_reset(struct net_device *ndev)
 	axienet_set_multicast_list(ndev);
 	axienet_setoptions(ndev, lp->options);
 
-	ndev->trans_start = jiffies;
+	netif_trans_update(ndev);
 }
 
 /**
@@ -1135,7 +1135,6 @@ static void axienet_ethtools_get_drvinfo(struct net_device *ndev,
 {
 	strlcpy(ed->driver, DRIVER_NAME, sizeof(ed->driver));
 	strlcpy(ed->version, DRIVER_VERSION, sizeof(ed->version));
-	ed->regdump_len = sizeof(u32) * AXIENET_REGS_N;
 }
 
 /**

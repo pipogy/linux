@@ -1236,7 +1236,7 @@ static int set_rts_threshold(struct usbnet *usbdev, u32 rts_threshold)
 
 	netdev_dbg(usbdev->net, "%s(): %i\n", __func__, rts_threshold);
 
-	if (rts_threshold < 0 || rts_threshold > 2347)
+	if (rts_threshold == -1 || rts_threshold > 2347)
 		rts_threshold = 2347;
 
 	tmp = cpu_to_le32(rts_threshold);
@@ -1291,7 +1291,7 @@ static int set_channel(struct usbnet *usbdev, int channel)
 		return 0;
 
 	dsconfig = 1000 *
-		ieee80211_channel_to_frequency(channel, IEEE80211_BAND_2GHZ);
+		ieee80211_channel_to_frequency(channel, NL80211_BAND_2GHZ);
 
 	len = sizeof(config);
 	ret = rndis_query_oid(usbdev,
@@ -3476,7 +3476,7 @@ static int rndis_wlan_bind(struct usbnet *usbdev, struct usb_interface *intf)
 	priv->band.n_channels = ARRAY_SIZE(rndis_channels);
 	priv->band.bitrates = priv->rates;
 	priv->band.n_bitrates = ARRAY_SIZE(rndis_rates);
-	wiphy->bands[IEEE80211_BAND_2GHZ] = &priv->band;
+	wiphy->bands[NL80211_BAND_2GHZ] = &priv->band;
 	wiphy->signal_type = CFG80211_SIGNAL_TYPE_UNSPEC;
 
 	memcpy(priv->cipher_suites, rndis_cipher_suites,

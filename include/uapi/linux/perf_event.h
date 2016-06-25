@@ -110,6 +110,7 @@ enum perf_sw_ids {
 	PERF_COUNT_SW_ALIGNMENT_FAULTS		= 7,
 	PERF_COUNT_SW_EMULATION_FAULTS		= 8,
 	PERF_COUNT_SW_DUMMY			= 9,
+	PERF_COUNT_SW_BPF_OUTPUT		= 10,
 
 	PERF_COUNT_SW_MAX,			/* non-ABI */
 };
@@ -168,6 +169,10 @@ enum perf_branch_sample_type_shift {
 
 	PERF_SAMPLE_BRANCH_CALL_STACK_SHIFT	= 11, /* call/ret stack */
 	PERF_SAMPLE_BRANCH_IND_JUMP_SHIFT	= 12, /* indirect jumps */
+	PERF_SAMPLE_BRANCH_CALL_SHIFT		= 13, /* direct call */
+
+	PERF_SAMPLE_BRANCH_NO_FLAGS_SHIFT	= 14, /* no flags */
+	PERF_SAMPLE_BRANCH_NO_CYCLES_SHIFT	= 15, /* no cycles */
 
 	PERF_SAMPLE_BRANCH_MAX_SHIFT		/* non-ABI */
 };
@@ -188,6 +193,10 @@ enum perf_branch_sample_type {
 
 	PERF_SAMPLE_BRANCH_CALL_STACK	= 1U << PERF_SAMPLE_BRANCH_CALL_STACK_SHIFT,
 	PERF_SAMPLE_BRANCH_IND_JUMP	= 1U << PERF_SAMPLE_BRANCH_IND_JUMP_SHIFT,
+	PERF_SAMPLE_BRANCH_CALL		= 1U << PERF_SAMPLE_BRANCH_CALL_SHIFT,
+
+	PERF_SAMPLE_BRANCH_NO_FLAGS	= 1U << PERF_SAMPLE_BRANCH_NO_FLAGS_SHIFT,
+	PERF_SAMPLE_BRANCH_NO_CYCLES	= 1U << PERF_SAMPLE_BRANCH_NO_CYCLES_SHIFT,
 
 	PERF_SAMPLE_BRANCH_MAX		= 1U << PERF_SAMPLE_BRANCH_MAX_SHIFT,
 };
@@ -331,7 +340,8 @@ struct perf_event_attr {
 				comm_exec      :  1, /* flag comm events that are due to an exec */
 				use_clockid    :  1, /* use @clockid for time fields */
 				context_switch :  1, /* context switch data */
-				__reserved_1   : 37;
+				write_backward :  1, /* Write ring buffer from end to beginning */
+				__reserved_1   : 36;
 
 	union {
 		__u32		wakeup_events;	  /* wakeup every n events */
@@ -392,6 +402,7 @@ struct perf_event_attr {
 #define PERF_EVENT_IOC_SET_FILTER	_IOW('$', 6, char *)
 #define PERF_EVENT_IOC_ID		_IOR('$', 7, __u64 *)
 #define PERF_EVENT_IOC_SET_BPF		_IOW('$', 8, __u32)
+#define PERF_EVENT_IOC_PAUSE_OUTPUT	_IOW('$', 9, __u32)
 
 enum perf_event_ioc_flags {
 	PERF_IOC_FLAG_GROUP		= 1U << 0,
@@ -476,7 +487,7 @@ struct perf_event_mmap_page {
 	 *   u64 delta;
 	 *
 	 *   quot = (cyc >> time_shift);
-	 *   rem = cyc & ((1 << time_shift) - 1);
+	 *   rem = cyc & (((u64)1 << time_shift) - 1);
 	 *   delta = time_offset + quot * time_mult +
 	 *              ((rem * time_mult) >> time_shift);
 	 *
@@ -507,7 +518,7 @@ struct perf_event_mmap_page {
 	 * And vice versa:
 	 *
 	 *   quot = cyc >> time_shift;
-	 *   rem  = cyc & ((1 << time_shift) - 1);
+	 *   rem  = cyc & (((u64)1 << time_shift) - 1);
 	 *   timestamp = time_zero + quot * time_mult +
 	 *               ((rem * time_mult) >> time_shift);
 	 */
@@ -851,6 +862,7 @@ enum perf_event_type {
 };
 
 #define PERF_MAX_STACK_DEPTH		127
+#define PERF_MAX_CONTEXTS_PER_STACK	  8
 
 enum perf_callchain_context {
 	PERF_CONTEXT_HV			= (__u64)-32,

@@ -3,7 +3,7 @@
 
 #define ATOMIC_INIT(i)	{ (i) }
 
-#define atomic_set(v, i)		((v)->counter = (i))
+#define atomic_set(v, i)		WRITE_ONCE((v)->counter, (i))
 
 #include <linux/compiler.h>
 
@@ -61,7 +61,7 @@ static inline int atomic_##op##_return(int i, atomic_t *v)		\
 		"	CMPT	%0, #HI(0x02000000)\n"			\
 		"	BNZ 1b\n"					\
 		: "=&d" (temp), "=&da" (result)				\
-		: "da" (&v->counter), "bd" (i)				\
+		: "da" (&v->counter), "br" (i)				\
 		: "cc");						\
 									\
 	smp_mb();							\

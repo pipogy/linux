@@ -287,7 +287,6 @@ static void bcm_sysport_get_drvinfo(struct net_device *dev,
 	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
 	strlcpy(info->version, "0.1", sizeof(info->version));
 	strlcpy(info->bus_info, "platform", sizeof(info->bus_info));
-	info->n_stats = BCM_SYSPORT_STATS_LEN;
 }
 
 static u32 bcm_sysport_get_msglvl(struct net_device *dev)
@@ -832,7 +831,7 @@ static int bcm_sysport_poll(struct napi_struct *napi, int budget)
 	rdma_writel(priv, priv->rx_c_index, RDMA_CONS_INDEX);
 
 	if (work_done < budget) {
-		napi_complete(napi);
+		napi_complete_done(napi, work_done);
 		/* re-enable RX interrupts */
 		intrl2_0_mask_clear(priv, INTRL2_0_RDMA_MBDONE);
 	}
@@ -874,7 +873,7 @@ static irqreturn_t bcm_sysport_rx_isr(int irq, void *dev_id)
 		if (likely(napi_schedule_prep(&priv->napi))) {
 			/* disable RX interrupts */
 			intrl2_0_mask_set(priv, INTRL2_0_RDMA_MBDONE);
-			__napi_schedule(&priv->napi);
+			__napi_schedule_irqoff(&priv->napi);
 		}
 	}
 
@@ -917,7 +916,7 @@ static irqreturn_t bcm_sysport_tx_isr(int irq, void *dev_id)
 
 		if (likely(napi_schedule_prep(&txr->napi))) {
 			intrl2_1_mask_set(priv, BIT(ring));
-			__napi_schedule(&txr->napi);
+			__napi_schedule_irqoff(&txr->napi);
 		}
 	}
 
@@ -1118,7 +1117,7 @@ static void bcm_sysport_tx_timeout(struct net_device *dev)
 {
 	netdev_warn(dev, "transmit timeout!\n");
 
-	dev->trans_start = jiffies;
+	netif_trans_update(dev);
 	dev->stats.tx_errors++;
 
 	netif_tx_wake_all_queues(dev);
@@ -1217,7 +1216,7 @@ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
 	/* Initialize SW view of the ring */
 	spin_lock_init(&ring->lock);
 	ring->priv = priv;
-	netif_napi_add(priv->netdev, &ring->napi, bcm_sysport_tx_poll, 64);
+	netif_tx_napi_add(priv->netdev, &ring->napi, bcm_sysport_tx_poll, 64);
 	ring->index = index;
 	ring->size = size;
 	ring->alloc_size = ring->size;

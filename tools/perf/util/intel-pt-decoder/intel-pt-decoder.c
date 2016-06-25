@@ -356,7 +356,7 @@ static const char *intel_pt_err_msgs[] = {
 
 int intel_pt__strerror(int code, char *buf, size_t buflen)
 {
-	if (code < 1 || code > INTEL_PT_ERR_MAX)
+	if (code < 1 || code >= INTEL_PT_ERR_MAX)
 		code = INTEL_PT_ERR_UNK;
 	strlcpy(buf, intel_pt_err_msgs[code], buflen);
 	return 0;
@@ -650,7 +650,7 @@ static int intel_pt_calc_cyc_cb(struct intel_pt_pkt_info *pkt_info)
 		if (data->from_mtc && timestamp < data->timestamp &&
 		    data->timestamp - timestamp < decoder->tsc_slip)
 			return 1;
-		while (timestamp < data->timestamp)
+		if (timestamp < data->timestamp)
 			timestamp += (1ULL << 56);
 		if (pkt_info->last_packet_type != INTEL_PT_CYC) {
 			if (data->from_mtc)
@@ -1191,7 +1191,7 @@ static void intel_pt_calc_tsc_timestamp(struct intel_pt_decoder *decoder)
 					timestamp);
 			timestamp = decoder->timestamp;
 		}
-		while (timestamp < decoder->timestamp) {
+		if (timestamp < decoder->timestamp) {
 			intel_pt_log_to("Wraparound timestamp", timestamp);
 			timestamp += (1ULL << 56);
 			decoder->tsc_timestamp = timestamp;
